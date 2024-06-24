@@ -300,7 +300,7 @@ def get_high_score():
         return 0
 
 
-def new_high_score():
+def check_high_score(reset_score=True):
     """checks if high score needs to be updated and updates it if necessary"""
     global SCORE
     high_score = get_high_score()
@@ -310,7 +310,8 @@ def new_high_score():
             f.write(str(SCORE))
         f.close()  # closes file
 
-    SCORE = 0  # resets score
+    if reset_score:
+        SCORE = 0  # resets score
 
     SCORE_LABEL.update("Score: " + str(SCORE))  # impatiently updates score_label to be 0 so that it's not lagging
     HIGH_SCORE_LABEL.update("High Score: " + str(high_score))  # updates high score label to show new high score
@@ -320,7 +321,7 @@ def reset_game(piece_list):
     global SQUARE_GRID
     SQUARE_GRID = np.zeros((10, 10), dtype=int)
     reset_pieces(piece_list, force=True)
-    new_high_score()
+    check_high_score()
 
 
 def check_stuck():
@@ -393,7 +394,10 @@ def main(bot_selection=False):
 
         if not running or game_over or reset_button_pressed:
             if GAME_MODE == "bot":
+                check_high_score(reset_score=False)
                 return SCORE
+            else:
+                check_high_score(reset_score=True)
 
             if reset_button_pressed:
                 reset_button_pressed = False

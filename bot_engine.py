@@ -25,10 +25,14 @@ class BotTrainer:
         self.num_bots = num_bots
         self.evolution_cycles = evolution_cycles
 
-    def run_bots(self):
+    def run_bots(self, matches_per_bot):
         """runs all bots through game and updates their scores (once they die)"""
         for i in range(100):
-            self.bots[i].score = game.main(self.bots[i])
+            total_score = 0
+            for j in range(matches_per_bot):
+                total_score += game.main(self.bots[i])
+            average_score = total_score/matches_per_bot
+            self.bots[i].score = average_score
 
     def select_parents(self, num_parents):
         """selects the best bots to be parents"""
@@ -53,7 +57,7 @@ class BotTrainer:
 
         return parents + children
 
-    def mutate(self):
+    def mutate(self, mutate_parents=False):
         """mutates weights and biases of all bots"""
         for child in self.bots:
             child.bot.mutate()
@@ -61,13 +65,13 @@ class BotTrainer:
     def run_evolution(self):
         """runs the evolution cycle"""
         for i in range(self.evolution_cycles):
-            self.run_bots()
-            parents = self.select_parents(19)
+            self.run_bots(40)
+            parents = self.select_parents(5)
             new_family = self.breed_children(parents)
             self.bots = new_family
             self.mutate()
 
-            print([i.score for i in parents])
+            print("Generation " + str(i) + ": ", [round(i.score, 3) for i in parents])
 
 
 def create_first_layer(game_board, pieces, shape_dict):
@@ -106,5 +110,5 @@ def create_last_layer(output_layer, pieces, shape_dict):
 
 
 if __name__ == "__main__":
-    bot_trainer = BotTrainer([119, 100, 100, 100, 119], 200, 100)
+    bot_trainer = BotTrainer([119, 100, 300, 500, 500, 500, 300, 100, 119], 200, 500)
     bot_trainer.run_evolution()
