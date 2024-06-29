@@ -57,7 +57,7 @@ class Bot:
 
         return child
 
-    def mutate(self, mutation_rate=0.1, mutation_strength=0.5):
+    def mutate(self, mutation_rate=0.5, mutation_strength=0.5):
         """mutates weights and biases"""
         # 1 in every 10 biases and weights are mutated by adding a random number from a normal distribution
         # at least when the mutation rate is 0.1 (meaning 10% of parameters will mutate)

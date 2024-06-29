@@ -9,6 +9,7 @@ class GameBot:
         self.bot = bot.Bot(network_shape)
         self.score = 0
         self.shape_dict = shape_dict
+        self.type = "child"
 
     def make_move(self, game_board, pieces):
         """takes in game state and returns a piece and a square on the grid"""
@@ -27,10 +28,11 @@ class BotTrainer:
 
     def run_bots(self, matches_per_bot):
         """runs all bots through game and updates their scores (once they die)"""
-        for i in range(100):
+        for i in range(self.num_bots):
             total_score = 0
             for j in range(matches_per_bot):
-                total_score += game.main(self.bots[i])
+                score = game.main(self.bots[i])
+                total_score += score
             average_score = total_score/matches_per_bot
             self.bots[i].score = average_score
 
@@ -55,21 +57,31 @@ class BotTrainer:
             child_gamebot.bot = parents[parents_to_breed[0]].bot.breed_child(parents[parents_to_breed[1]].bot)
             children.append(child_gamebot)
 
+        for parent in parents:
+            parent.type = "parent"
+
+        for child in children:
+            child.type = "child"
+
         return parents + children
 
     def mutate(self, mutate_parents=False):
         """mutates weights and biases of all bots"""
         for child in self.bots:
-            child.bot.mutate()
+            if mutate_parents:
+                child.bot.mutate()
+            else:
+                if child.type == "child":
+                    child.bot.mutate()
 
     def run_evolution(self):
         """runs the evolution cycle"""
         for i in range(self.evolution_cycles):
-            self.run_bots(40)
+            self.run_bots(30)
             parents = self.select_parents(5)
             new_family = self.breed_children(parents)
             self.bots = new_family
-            self.mutate()
+            self.mutate(mutate_parents=False)
 
             print("Generation " + str(i) + ": ", [round(i.score, 3) for i in parents])
 
@@ -98,17 +110,26 @@ def create_last_layer(output_layer, pieces, shape_dict):
     """
     square = np.argmax(output_layer.nodes[0:100])
 
-    piece_index = np.argmax(output_layer.nodes[100:])
-    piece_code = list(shape_dict.keys())[piece_index]
-    specific_piece = -1
+    possible_indexes = []
+    pieces_by_shape = list(shape_dict.keys())
     for piece in pieces:
-        if piece.shape == piece_code:
-            specific_piece = pieces.index(piece)
-            break
+        if piece.state == 0:
+            possible_indexes.append(pieces_by_shape.index(piece.shape))
+        else:
+            possible_indexes.append(-1)
 
-    return specific_piece, square // 10, square % 10
+    piece_choices = []
+    for index in possible_indexes:
+        if index == -1:
+            piece_choices.append(-10)
+        else:
+            piece_choices.append(output_layer.nodes[100 + index])
+
+    piece_index = np.argmax(piece_choices)
+
+    return piece_index, square // 10, square % 10
 
 
 if __name__ == "__main__":
-    bot_trainer = BotTrainer([119, 100, 300, 500, 500, 500, 300, 100, 119], 200, 500)
+    bot_trainer = BotTrainer([119, 100, 100, 100, 119], 100, 100)
     bot_trainer.run_evolution()
