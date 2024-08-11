@@ -5,7 +5,7 @@ import random
 class Piece:
     def __init__(self, position, window, shape_dict, colour_dict):
         self.shape = random.choice(list(shape_dict.keys()))
-        self.shape_blueprint, self.margin, self.enlargement_diff, self.score, self.colour = shape_dict[self.shape]
+        self.shape_blueprint, self.margin, self.enlargement_diff, self.score, self.colour, self.perimeter = shape_dict[self.shape]
         self.position = position
         self.grid_positioning = position * 130  # uses the position (0, 1, 2) to place piece in correct spot
         self.state = 0  # 0 - not clicked, 1 - clicked, 2 - placed

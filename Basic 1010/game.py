@@ -3,7 +3,7 @@ import numpy as np
 import random
 import time
 import game_objects as go
-import bot
+import bot as bot_file
 
 py.init()
 
@@ -36,26 +36,27 @@ COLOUR_DICT = {
     10: (230, 126, 225)}
 
 # [0] = shape, [1] = margin, [2] = change in position when clicked, [3] = score when placed, [4] = colour number
+# [5] = perimeter
 SHAPE_DICT = {
-    's': [[(0, 0)], 55, 10, 1, 1],
-    'dx': [[(0, 0), (1, 0)], 45, 20, 2, 2],
-    'dy': [[(0, 0), (0, 1)], 55, 10, 2, 2],
-    'sq': [[(0, 0), (1, 0), (0, 1), (1, 1)], 45, 20, 4, 3],
-    'v1': [[(0, 0), (0, 1), (1, 1)], 45, 20, 3, 4],
-    'v2': [[(0, 0), (1, 0), (0, 1)], 45, 20, 3, 4],
-    'v3': [[(0, 0), (1, 0), (1, 1)], 45, 20, 3, 4],
-    'v4': [[(1, 0), (0, 1), (1, 1)], 45, 20, 3, 4],
-    'tx': [[(1, 0), (0, 1), (1, 1)], 35, 30, 3, 5],
-    'ty': [[(1, 0), (0, 1), (1, 1)], 55, 10, 3, 5],
-    'bv1': [[(0, 0), (1, 0), (2, 0), (0, 1), (0, 2)], 35, 30, 5, 6],
-    'bv2': [[(0, 0), (1, 0), (2, 0), (2, 1), (2, 2)], 35, 30, 5, 6],
-    'bv3': [[(2, 0), (2, 1), (0, 2), (1, 2), (2, 2)], 35, 30, 5, 6],
-    'bv4': [[(0, 0), (0, 1), (0, 2), (1, 2), (2, 2)], 35, 30, 5, 6],
-    'frx': [[(0, 0), (1, 0), (2, 0), (3, 0)], 25, 40, 4, 7],
-    'fry': [[(0, 0), (0, 1), (0, 2), (0, 3)], 55, 10, 4, 7],
-    'fvx': [[(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)], 15, 50, 5, 8],
-    'fvy': [[(0, 0), (0, 1), (0, 2), (0, 3), (0, 4)], 55, 10, 5, 8],
-    'bsq': [[(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (0, 2), (1, 2), (2, 2)], 35, 30, 9, 9]}
+    's': [[(0, 0)], 55, 10, 1, 1, 4],
+    'dx': [[(0, 0), (1, 0)], 45, 20, 2, 2, 6],
+    'dy': [[(0, 0), (0, 1)], 55, 10, 2, 2, 6],
+    'sq': [[(0, 0), (1, 0), (0, 1), (1, 1)], 45, 20, 4, 3, 8],
+    'v1': [[(0, 0), (0, 1), (1, 1)], 45, 20, 3, 4, 8],
+    'v2': [[(0, 0), (1, 0), (0, 1)], 45, 20, 3, 4, 8],
+    'v3': [[(0, 0), (1, 0), (1, 1)], 45, 20, 3, 4, 8],
+    'v4': [[(1, 0), (0, 1), (1, 1)], 45, 20, 3, 4, 8],
+    'tx': [[(1, 0), (0, 1), (1, 1)], 35, 30, 3, 5, 10],
+    'ty': [[(1, 0), (0, 1), (1, 1)], 55, 10, 3, 5, 10],
+    'bv1': [[(0, 0), (1, 0), (2, 0), (0, 1), (0, 2)], 35, 30, 5, 6, 12],
+    'bv2': [[(0, 0), (1, 0), (2, 0), (2, 1), (2, 2)], 35, 30, 5, 6, 12],
+    'bv3': [[(2, 0), (2, 1), (0, 2), (1, 2), (2, 2)], 35, 30, 5, 6, 12],
+    'bv4': [[(0, 0), (0, 1), (0, 2), (1, 2), (2, 2)], 35, 30, 5, 6, 12],
+    'frx': [[(0, 0), (1, 0), (2, 0), (3, 0)], 25, 40, 4, 7, 10],
+    'fry': [[(0, 0), (0, 1), (0, 2), (0, 3)], 55, 10, 4, 7, 10],
+    'fvx': [[(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)], 15, 50, 5, 8, 12],
+    'fvy': [[(0, 0), (0, 1), (0, 2), (0, 3), (0, 4)], 55, 10, 5, 8, 12],
+    'bsq': [[(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (0, 2), (1, 2), (2, 2)], 35, 30, 9, 9, 12]}
 
 
 # STATE VARIABLES AND SUCH -----------------------------------------------------------------------------
@@ -63,7 +64,7 @@ CLICKED_PIECE_INDEX = 0  # allows us to know which piece we're actively dealing 
 SCORE = 0
 MOUSE_X, MOUSE_Y = py.mouse.get_pos()
 INITIAL_X, INITIAL_Y = 0, 0  # corresponds to mouse's coordinates when it's first clicked (allows to drag pieces)
-SQUARE_GRID = np.zeros((10, 10), dtype=int)  # 0 if empty, any other number indicates a colour
+BOARD = np.zeros((10, 10), dtype=int)  # 0 if empty, any other number indicates a colour
 GAME_MODE = "player"
 
 SCORE_LABEL = go.Text("Score: 0", 30, (100, 60), WINDOW)
@@ -92,10 +93,10 @@ def draw_grid():
 
 def fill_squares():
     """draws squares in grid with appropriate colours based on SQUARE_GRID"""
-    for line in range(10):
-        for square in range(10):
-            if SQUARE_GRID[square][line] != 0:
-                py.draw.rect(WINDOW, py.Color(COLOUR_DICT[int(SQUARE_GRID[square][line])]), (52 + square * 40, 102 + line * 40, 37, 37), width=0)
+    for y_coord in range(10):
+        for x_coord in range(10):
+            if BOARD[y_coord][x_coord] != 0:
+                py.draw.rect(WINDOW, py.Color(COLOUR_DICT[int(BOARD[y_coord][x_coord])]), (52 + x_coord * 40, 102 + y_coord * 40, 37, 37), width=0)
 
 
 def visuals():
@@ -165,7 +166,7 @@ def place_piece(x_coord, y_coord, bot=False):  # bot argument is true when bot i
         shape_coord_y += y_coord
 
         # if position of these squares is out of bounds or unavailable, cancels the whole thing
-        if not(0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not SQUARE_GRID[shape_coord_x][shape_coord_y]):
+        if not(0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not BOARD[shape_coord_y][shape_coord_x]):
             return 0  # returns state = 0, so piece snaps back to passive position
 
     # figure out what this is about later
@@ -174,7 +175,7 @@ def place_piece(x_coord, y_coord, bot=False):  # bot argument is true when bot i
         for shape_coord_x, shape_coord_y in PIECES[CLICKED_PIECE_INDEX].shape_blueprint:
             shape_coord_x += x_coord
             shape_coord_y += y_coord
-            SQUARE_GRID[shape_coord_x][shape_coord_y] = PIECES[CLICKED_PIECE_INDEX].colour
+            BOARD[shape_coord_y][shape_coord_x] = PIECES[CLICKED_PIECE_INDEX].colour
 
         SCORE += PIECES[CLICKED_PIECE_INDEX].score  # Updates game score
 
@@ -186,43 +187,37 @@ def check_lines():
     global SCORE
 
     # initializes lists for which lines are cleared. if none then these remain empty
-    x_cleared = []
-    y_cleared = []
+    horizontal_clears = []
+    vertical_clears = []
 
     # Checks for full horizontal lines
-    for line in range(10):
-        cleared = True
-        for square in range(10):
-            if not SQUARE_GRID[line][square]:
-                cleared = False
-        if cleared:
-            x_cleared.append(line)
+    for y_coord in range(10):
+        if 0 not in BOARD[y_coord]:
+            horizontal_clears.append(y_coord)
 
     # Checks for full vertical lines
-    for line in range(10):
-        cleared = True
-        for square in range(10):
-            if not SQUARE_GRID[square][line]:
-                cleared = False
-        if cleared:
-            y_cleared.append(line)
+    swapped_axes = np.swapaxes(BOARD, 0, 1)
+    for x_coord in range(10):
+        if 0 not in swapped_axes[x_coord]:
+            vertical_clears.append(x_coord)
 
     # actually clears the lines that were confirmed clear when checked (x) and adjusts score
-    for line in x_cleared:
-        for square in range(10):
-            SQUARE_GRID[line][square] = False
+    for y_coord in horizontal_clears:
+        for x_coord in range(10):
+            BOARD[y_coord][x_coord] = 0
             visuals()
-            time.sleep(0.01)
-        SCORE += 10
+            # time.sleep(0.01)
 
     # actually clears vertical lines and adjusts score
-    for line in y_cleared:
-        for square in range(10):
-            SQUARE_GRID[square][line] = False
+    for x_coord in vertical_clears:
+        for y_coord in range(10):
+            BOARD[y_coord][x_coord] = 0
             visuals()
-            time.sleep(0.01)
-        SCORE += 10
+            # time.sleep(0.01)
 
+    lines_cleared = len(vertical_clears) + len(horizontal_clears)
+
+    SCORE += 5 * (lines_cleared**2 + lines_cleared)
     # updates score label --> conveniently placed after pieces placed and after line clears
     SCORE_LABEL.update("Score: " + str(SCORE))
 
@@ -265,7 +260,7 @@ def check_game_over():
                         shape_coord_y += b
 
                         # if a square in the shape can't be placed, then it is considered to not work
-                        if not (0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not SQUARE_GRID[shape_coord_x][shape_coord_y]):
+                        if not (0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not BOARD[shape_coord_y][shape_coord_x]):
                             works = False
                             break
                     # if any one possibility works then it returns that the game has not ended
@@ -314,8 +309,8 @@ def check_high_score(reset_score=True):
 
 
 def reset_game(piece_list):
-    global SQUARE_GRID
-    SQUARE_GRID = np.zeros((10, 10), dtype=int)
+    global BOARD
+    BOARD = np.zeros((10, 10), dtype=int)
     reset_pieces(piece_list, force=True)
     check_high_score()
 
@@ -323,7 +318,7 @@ def reset_game(piece_list):
 def run_bot(mybot):
     """argument is the bot class that you want to use. It must have the associated function mybot.make_move"""
     global CLICKED_PIECE_INDEX
-    CLICKED_PIECE_INDEX, y_coord, x_coord = mybot.make_move(SQUARE_GRID, PIECES)  # gets move from bot
+    CLICKED_PIECE_INDEX, x_coord, y_coord = mybot.make_move(BOARD, PIECES)  # gets move from bot
 
     if 0 <= CLICKED_PIECE_INDEX <= 2 and PIECES[CLICKED_PIECE_INDEX].state != 2:
         PIECES[CLICKED_PIECE_INDEX].state = 1
@@ -336,7 +331,7 @@ def run_bot(mybot):
         CLICKED_PIECE_INDEX = -1  # if no piece was clicked, then index is -1
 
 
-def main(bot_selection=False):
+def main(bot_selection=False, rounds=1):
     global GAME_MODE, MOUSE_X, MOUSE_Y
     reset_button_pressed = False
     mouse_pressed = False
@@ -344,7 +339,11 @@ def main(bot_selection=False):
     py.display.set_caption(WINDOW_TITLE)
 
     running = True
-    while running:
+    count = 0
+    all_scores = []
+    while running and count < rounds:
+        # print(f'\rRound: {count}', end='', flush=True)
+
         MOUSE_X, MOUSE_Y = py.mouse.get_pos()
 
         for event in py.event.get():
@@ -361,7 +360,7 @@ def main(bot_selection=False):
 
         # Runs the bot
         if GAME_MODE == "bot":
-            time.sleep(0.1)  # delay so you can watch the bot
+            # time.sleep(0.01)  # delay so you can watch the bot
             run_bot(bot_selection)
 
         # Checks if there are pieces still left. Resets and adds new ones if no.
@@ -371,6 +370,9 @@ def main(bot_selection=False):
         game_over = check_game_over()
 
         if not running or game_over or reset_button_pressed:
+            all_scores.append(SCORE)
+            count += 1
+            print(SCORE)
             check_high_score(reset_score=True)
 
             if reset_button_pressed:
@@ -385,9 +387,77 @@ def main(bot_selection=False):
         visuals()
         RESTART_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
         BOT_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
+        # time.sleep(0.5)
+
+    median = np.median(np.array(all_scores))
+    return median
+
+
+def try_configuration(weights, rounds):
+    bot = bot_file.Bot(3, weights)  # create bot object
+    average_score = main(bot, rounds=rounds)  # need to pass a bot object to main, nothing else
+
+    bot.output_time_breakdown()
+
+    return average_score, weights
+
+
+def generate_all_permutations():
+    import itertools
+
+    # Define the possible values each element can take
+    possible_values = [i * 0.5 for i in range(3)]  # [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    print(possible_values)
+
+    # Generate all possible combinations with repetition for the given length of the list
+    combinations = list(itertools.product(possible_values, repeat=5))
+
+    # Convert combinations to a set to filter out duplicates, if any
+    unique_combinations = set(combinations)
+
+    # Convert back to list if needed
+    unique_combinations_list = list(unique_combinations)
+
+    print(len(unique_combinations_list), "combinations testing")
+    return unique_combinations_list
+
+
+def explore_around(configuration, increments, num_increments):  # num increments above and below original values
+    import itertools
+    adjustments = [i * increments - num_increments * increments for i in range(num_increments * 2 + 1)]
+    print("Testing the following configuration:", configuration)
+    print("Testing the following adjustments:", adjustments)
+    combinations_of_increments = list(itertools.product(adjustments, repeat=5))
+    unique_combinations = set(combinations_of_increments)
+
+    new_configurations = [np.add(configuration, unique_combination) for unique_combination in unique_combinations]
+
+    count = 0
+    for config in new_configurations:
+        for num in config:
+            if num < 0:
+                new_configurations = np.delete(new_configurations, count, axis=0)
+                count -= 1
+                break
+        count += 1
+
+    return new_configurations
 
 
 if __name__ == "__main__":
-    bot = bot.Bot()  # create bot object
-    main(bot)  # need to pass a bot object to main, nothing else
+    RESULTS_LIST = []
+    rounds = 5
+    configs_to_try = [(1.0, 0, 0, 0.5, 0.6)]
+
+    print("Testing", len(configs_to_try), "configurations")
+    count = 0
+    for weights in configs_to_try:
+        count += 1
+        # print(f'\rWorking on configuration: {count}', end='', flush=True)
+        RESULTS_LIST.append(try_configuration(weights, rounds))
+
+    with open("test_data", 'w') as f:
+        f.write(str(RESULTS_LIST))
+    f.close()  # closes file
+
     py.quit()
