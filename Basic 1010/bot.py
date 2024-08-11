@@ -1,6 +1,5 @@
 import numpy as np
 import time
-from helpful_functions import timeit
 
 
 class Bot:
