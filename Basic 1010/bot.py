@@ -1,13 +1,12 @@
 import numpy as np
 import time
-from helpful_functions import timeit
 
 
 class Bot:
-    def __init__(self, depth=1, weight_distribution=(1, 0.5, 0.5, 1, 1)):
+    def __init__(self, depth=1, weight_distribution=(1, 0.5, 0.6)):
         self.depth = depth
 
-        # line-clearing, black-blobs, piece-blobs, snugness, room for 3x3s
+        # line-clearing, snugness, room for 3x3s
         self.weight_distribution = weight_distribution
 
         self.line_score = 0
@@ -59,7 +58,7 @@ class Bot:
                             # ----- SNUGNESS
                             snugness_board = np.copy(board)
                             snugness_board, garbage = place_piece(x_coord, y_coord, pieces[piece], snugness_board, place_value=2)
-                            self.snugness_score = snug_fit_heuristic(snugness_board, pieces[piece], x_coord, y_coord) * self.weight_distribution[3]
+                            self.snugness_score = snug_fit_heuristic(snugness_board, pieces[piece], x_coord, y_coord) * self.weight_distribution[1]
 
                             snugness_time = time.time_ns() - start
 
@@ -68,7 +67,7 @@ class Bot:
                             original_room_heuristic = is_room_heuristic(board)
                             new_room_heuristic = is_room_heuristic(fake_board)
 
-                            self.room_score = self.weight_distribution[4] * (21 + new_room_heuristic - original_room_heuristic)/21
+                            self.room_score = self.weight_distribution[2] * (21 + new_room_heuristic - original_room_heuristic)/21
                             # the worst possible move you could make is placing a 5-long piece and blocking off
                             # 21 potential 3x3 spaces. this way this score can never be negative.
                             # it is normalized so if nothing changes it is a score of 1
@@ -106,7 +105,7 @@ class Bot:
 
         metric = board_fullness
 
-        if metric < 0.15:
+        if metric < 0.25:
             self.depth = 1
         elif metric < 0.5:
             self.depth = 2
@@ -125,6 +124,7 @@ class Bot:
         return best_move
 
     def blob_heuristic(self, board):
+        # NOTE THIS IS CURRENTLY OUT OF USE - NOT IMPLEMENTED PROPERLY
         """returns a value indicating how many piece blobs and black blobs are on the grid (weights applied)"""
         fake_board = np.copy(board)
         fake_board_reverse = np.invert(np.array(fake_board, dtype=bool))

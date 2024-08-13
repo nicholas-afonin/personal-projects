@@ -206,14 +206,14 @@ def check_lines():
         for x_coord in range(10):
             BOARD[y_coord][x_coord] = 0
             visuals()
-            # time.sleep(0.01)
+            time.sleep(0.01)
 
     # actually clears vertical lines and adjusts score
     for x_coord in vertical_clears:
         for y_coord in range(10):
             BOARD[y_coord][x_coord] = 0
             visuals()
-            # time.sleep(0.01)
+            time.sleep(0.01)
 
     lines_cleared = len(vertical_clears) + len(horizontal_clears)
 
@@ -372,7 +372,7 @@ def main(bot_selection=False, rounds=1):
         if not running or game_over or reset_button_pressed:
             all_scores.append(SCORE)
             count += 1
-            print(SCORE)
+            # print(SCORE)
             check_high_score(reset_score=True)
 
             if reset_button_pressed:
@@ -387,19 +387,19 @@ def main(bot_selection=False, rounds=1):
         visuals()
         RESTART_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
         BOT_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
-        # time.sleep(0.5)
+        time.sleep(0.5)
 
     median = np.median(np.array(all_scores))
-    return median
+    return median, max(all_scores), min(all_scores)
 
 
 def try_configuration(weights, rounds):
-    bot = bot_file.Bot(3, weights)  # create bot object
-    average_score = main(bot, rounds=rounds)  # need to pass a bot object to main, nothing else
+    bot = bot_file.Bot(1, weights)  # create bot object
+    median, max_score, min_score = main(bot, rounds=rounds)  # need to pass a bot object to main, nothing else
 
-    bot.output_time_breakdown()
+    # bot.output_time_breakdown()
 
-    return average_score, weights
+    return median, max_score, min_score, weights
 
 
 def generate_all_permutations():
@@ -427,7 +427,7 @@ def explore_around(configuration, increments, num_increments):  # num increments
     adjustments = [i * increments - num_increments * increments for i in range(num_increments * 2 + 1)]
     print("Testing the following configuration:", configuration)
     print("Testing the following adjustments:", adjustments)
-    combinations_of_increments = list(itertools.product(adjustments, repeat=5))
+    combinations_of_increments = list(itertools.product(adjustments, repeat=len(configuration)))
     unique_combinations = set(combinations_of_increments)
 
     new_configurations = [np.add(configuration, unique_combination) for unique_combination in unique_combinations]
@@ -446,17 +446,17 @@ def explore_around(configuration, increments, num_increments):  # num increments
 
 if __name__ == "__main__":
     RESULTS_LIST = []
-    rounds = 5
-    configs_to_try = [(1.0, 0, 0, 0.5, 0.6)]
+    rounds = 200
+    configs_to_try = [[0.8, 0.5, 0.7]]
 
     print("Testing", len(configs_to_try), "configurations")
     count = 0
     for weights in configs_to_try:
         count += 1
-        # print(f'\rWorking on configuration: {count}', end='', flush=True)
+        print(f'\rWorking on configuration: {count}', end='', flush=True)
         RESULTS_LIST.append(try_configuration(weights, rounds))
 
-    with open("test_data", 'w') as f:
+    with open("poopoo", 'w') as f:
         f.write(str(RESULTS_LIST))
     f.close()  # closes file
 
