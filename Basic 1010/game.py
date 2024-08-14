@@ -139,87 +139,30 @@ def mouse_clicked():
 
 
 def mouse_released():
-    if PIECES[CLICKED_PIECE_INDEX].state != 2 and CLICKED_PIECE_INDEX != -1:  # if the piece is not yet placed
+    global BOARD, SCORE
+    piece = PIECES[CLICKED_PIECE_INDEX]
+    if piece.state != 2 and CLICKED_PIECE_INDEX != -1:  # if the piece is not yet placed
 
         # converts piece's pixel coordinates (position_on_grid) to grid coordinates (x_coord, y_coord)
-        position_on_grid = PIECES[CLICKED_PIECE_INDEX].coordinates
+        position_on_grid = piece.coordinates
         x_coord = (position_on_grid[0] + 19 - 50) // 40
         y_coord = (position_on_grid[1] + 19 - 100) // 40
 
         # if both coordinates are actually in the grid, then trigger place_piece() function
         if 0 <= x_coord <= 9 and 0 <= y_coord <= 9:
-            PIECES[CLICKED_PIECE_INDEX].state = place_piece(x_coord, y_coord)
+            BOARD, piece.state = go.place_piece(x_coord, y_coord, piece, BOARD, piece.colour, 2)
+
+            if piece.state == 2:
+                SCORE += piece.score
 
             # Checks if the player completed a horizontal or vertical line and eliminates it if so
-            check_lines()
+            BOARD, lines_cleared = go.clear_lines(BOARD)
+            SCORE += 0.5 * (lines_cleared**2 + lines_cleared)
+            SCORE_LABEL.update("Score: " + str(int(SCORE)))
 
         # If it is not in the grid, just snap back to og spot
         else:
-            PIECES[CLICKED_PIECE_INDEX].state = 0
-
-
-def place_piece(x_coord, y_coord, bot=False):  # bot argument is true when bot is testing positions
-    global SCORE
-    # pulls up every square in shape blueprint and adjusts it to be in its actual position on the grid
-    for shape_coord_x, shape_coord_y in PIECES[CLICKED_PIECE_INDEX].shape_blueprint:
-        shape_coord_x += x_coord
-        shape_coord_y += y_coord
-
-        # if position of these squares is out of bounds or unavailable, cancels the whole thing
-        if not(0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not BOARD[shape_coord_y][shape_coord_x]):
-            return 0  # returns state = 0, so piece snaps back to passive position
-
-    # figure out what this is about later
-    if not bot:
-        # if not cancelled, switches all squares in blueprint to the correct colour (after adjusting in same way as above)
-        for shape_coord_x, shape_coord_y in PIECES[CLICKED_PIECE_INDEX].shape_blueprint:
-            shape_coord_x += x_coord
-            shape_coord_y += y_coord
-            BOARD[shape_coord_y][shape_coord_x] = PIECES[CLICKED_PIECE_INDEX].colour
-
-        SCORE += PIECES[CLICKED_PIECE_INDEX].score  # Updates game score
-
-    return 2  # returns state = 2, so piece is now considered placed
-
-
-def check_lines():
-    """sees if lines need to be eliminated (full line gets bonked)"""
-    global SCORE
-
-    # initializes lists for which lines are cleared. if none then these remain empty
-    horizontal_clears = []
-    vertical_clears = []
-
-    # Checks for full horizontal lines
-    for y_coord in range(10):
-        if 0 not in BOARD[y_coord]:
-            horizontal_clears.append(y_coord)
-
-    # Checks for full vertical lines
-    swapped_axes = np.swapaxes(BOARD, 0, 1)
-    for x_coord in range(10):
-        if 0 not in swapped_axes[x_coord]:
-            vertical_clears.append(x_coord)
-
-    # actually clears the lines that were confirmed clear when checked (x) and adjusts score
-    for y_coord in horizontal_clears:
-        for x_coord in range(10):
-            BOARD[y_coord][x_coord] = 0
-            visuals()
-            time.sleep(0.01)
-
-    # actually clears vertical lines and adjusts score
-    for x_coord in vertical_clears:
-        for y_coord in range(10):
-            BOARD[y_coord][x_coord] = 0
-            visuals()
-            time.sleep(0.01)
-
-    lines_cleared = len(vertical_clears) + len(horizontal_clears)
-
-    SCORE += 5 * (lines_cleared**2 + lines_cleared)
-    # updates score label --> conveniently placed after pieces placed and after line clears
-    SCORE_LABEL.update("Score: " + str(SCORE))
+            piece.state = 0
 
 
 def reset_pieces(piece_list, force=False):
@@ -317,17 +260,26 @@ def reset_game(piece_list):
 
 def run_bot(mybot):
     """argument is the bot class that you want to use. It must have the associated function mybot.make_move"""
-    global CLICKED_PIECE_INDEX
+    global CLICKED_PIECE_INDEX, BOARD, SCORE
     CLICKED_PIECE_INDEX, x_coord, y_coord = mybot.make_move(BOARD, PIECES)  # gets move from bot
 
-    if 0 <= CLICKED_PIECE_INDEX <= 2 and PIECES[CLICKED_PIECE_INDEX].state != 2:
-        PIECES[CLICKED_PIECE_INDEX].state = 1
-        state = place_piece(x_coord, y_coord)
-        PIECES[CLICKED_PIECE_INDEX].state = state
-        if state == 2:
-            check_lines()
+    piece = PIECES[CLICKED_PIECE_INDEX]
+
+    # if the piece is valid, try to place it
+    if 0 <= CLICKED_PIECE_INDEX <= 2 and piece.state != 2:
+        BOARD, piece.state = go.place_piece(x_coord, y_coord, piece, BOARD, place_value=piece.colour, return_value=2)
+
+        if piece.state == 2:
+            SCORE += piece.score
+
+        # if successfully placed, check to see if it cleared any lines
+        if piece.state == 2:
+            BOARD, lines_cleared = go.clear_lines(BOARD)
+            SCORE += 0.5 * (lines_cleared ** 2 + lines_cleared)
+            SCORE_LABEL.update("Score: " + str(int(SCORE)))
 
     else:
+        print("invalid move: piece already placed or nonexistent")
         CLICKED_PIECE_INDEX = -1  # if no piece was clicked, then index is -1
 
 
@@ -387,7 +339,6 @@ def main(bot_selection=False, rounds=1):
         visuals()
         RESTART_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
         BOT_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
-        time.sleep(0.5)
 
     median = np.median(np.array(all_scores))
     return median, max(all_scores), min(all_scores)

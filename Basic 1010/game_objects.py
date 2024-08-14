@@ -1,5 +1,6 @@
 import pygame as py
 import random
+import numpy as np
 
 
 class Piece:
@@ -93,3 +94,57 @@ class Button:
             self.state = 1
         else:
             self.state = 0
+
+
+def clear_lines(board):
+    """
+    checks the board and clears full lines.
+    @param board: the game board to check
+    @return updated board: board with any full lines cleared
+    @return lines_cleared: number of lines that were cleared on the baord
+    """
+    # initializes lists for which lines are cleared. if none then these remain empty
+    horizontal_clears = []
+    vertical_clears = []
+
+    # Checks for full horizontal lines
+    for y_coord in range(10):
+        if 0 not in board[y_coord]:
+            horizontal_clears.append(y_coord)
+
+    # Checks for full vertical lines
+    swapped_axes = np.swapaxes(board, 0, 1)
+    for x_coord in range(10):
+        if 0 not in swapped_axes[x_coord]:
+            vertical_clears.append(x_coord)
+
+    # clears lines that are full - might be a faster way to do this not sure
+    for y_coord in horizontal_clears:
+        for x_coord in range(10):
+            board[y_coord][x_coord] = 0
+    for x_coord in vertical_clears:
+        for y_coord in range(10):
+            board[y_coord][x_coord] = 0
+
+    lines_cleared = len(horizontal_clears) + len(vertical_clears)
+
+    return board, lines_cleared
+
+
+def place_piece(x_coord, y_coord, piece, board, place_value=1, return_value=1):
+    # pulls up every square in shape blueprint and adjusts it to be in its actual position on the grid
+    for shape_coord_x, shape_coord_y in piece.shape_blueprint:
+        shape_coord_x += x_coord
+        shape_coord_y += y_coord
+
+        # if position of these squares is out of bounds or unavailable, cancels the whole thing
+        if not (0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not board[shape_coord_y][shape_coord_x]):
+            return board, 0
+
+    # if all squares are in bounds and valid, updates the board
+    for shape_coord_x, shape_coord_y in piece.shape_blueprint:
+        shape_coord_x += x_coord
+        shape_coord_y += y_coord
+        board[shape_coord_y][shape_coord_x] = place_value
+
+    return board, return_value

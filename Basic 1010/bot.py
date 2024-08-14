@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import game_objects as go
 
 
 class Bot:
@@ -57,7 +58,7 @@ class Bot:
                             start = time.time_ns()
                             # ----- SNUGNESS
                             snugness_board = np.copy(board)
-                            snugness_board, garbage = place_piece(x_coord, y_coord, pieces[piece], snugness_board, place_value=2)
+                            snugness_board, garbage = go.place_piece(x_coord, y_coord, pieces[piece], snugness_board, place_value=2)
                             self.snugness_score = snug_fit_heuristic(snugness_board, pieces[piece], x_coord, y_coord) * self.weight_distribution[1]
 
                             snugness_time = time.time_ns() - start
@@ -138,61 +139,13 @@ class Bot:
 
     def try_move(self, board, piece, square):
         """tests the result of placing a given piece (0-2) in a given square on the board and returns the score"""
-        board, score = place_piece(square[0], square[1], piece, board)
+        board, score = go.place_piece(square[0], square[1], piece, board)
         if score != 0:
-            board, lines_cleared = check_lines(board)
+            board, lines_cleared = go.clear_lines(board)
             self.line_score = lines_cleared * self.weight_distribution[0]
             score += self.line_score
 
         return board, score
-
-
-def place_piece(x_coord, y_coord, piece, board, place_value=1):
-    # pulls up every square in shape blueprint and adjusts it to be in its actual position on the grid
-    for shape_coord_x, shape_coord_y in piece.shape_blueprint:
-        shape_coord_x += x_coord
-        shape_coord_y += y_coord
-
-        # if position of these squares is out of bounds or unavailable, cancels the whole thing
-        if not (0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not board[shape_coord_y][shape_coord_x]):
-            return board, 0
-
-    # if all squares are in bounds and valid, updates the board
-    for shape_coord_x, shape_coord_y in piece.shape_blueprint:
-        shape_coord_x += x_coord
-        shape_coord_y += y_coord
-        board[shape_coord_y][shape_coord_x] = place_value
-
-    return board, 1
-    # instead of 1 could be piece score, but I don't see any inherent value to that
-
-
-def check_lines(board):
-    """sees if lines need to be eliminated (full line gets bonked)"""
-    # initializes lists for which lines are cleared. if none then these remain empty
-    horizontal_clears = []
-    vertical_clears = []
-
-    # Checks for full horizontal lines
-    for y_coord in range(10):
-        if 0 not in board[y_coord]:
-            horizontal_clears.append(y_coord)
-
-    # Checks for full vertical lines
-    swapped_axes = np.swapaxes(board, 0, 1)
-    for x_coord in range(10):
-        if 0 not in swapped_axes[x_coord]:
-            vertical_clears.append(x_coord)
-
-    # clears lines that are full
-    for y_coord in horizontal_clears:
-        board[y_coord][0:10] = 0
-    for x_coord in vertical_clears:
-        board[0:10][x_coord] = 0
-
-    lines_cleared = len(horizontal_clears) + len(vertical_clears)
-
-    return board, 0.5*(lines_cleared**2 + lines_cleared)
 
 
 def blob_counter(board):
