@@ -109,13 +109,13 @@ def clear_lines(board):
 
     # Checks for full horizontal lines
     for y_coord in range(10):
-        if 0 not in board[y_coord]:
+        if np.count_nonzero(board[y_coord] == 0) == 0:
             horizontal_clears.append(y_coord)
 
     # Checks for full vertical lines
     swapped_axes = np.swapaxes(board, 0, 1)
     for x_coord in range(10):
-        if 0 not in swapped_axes[x_coord]:
+        if np.count_nonzero(swapped_axes[x_coord] == 0) == 0:
             vertical_clears.append(x_coord)
 
     # clears lines that are full - might be a faster way to do this not sure
@@ -148,3 +148,72 @@ def place_piece(x_coord, y_coord, piece, board, place_value=1, return_value=1):
         board[shape_coord_y][shape_coord_x] = place_value
 
     return board, return_value
+
+
+def draw_grid(window, window_width):
+    grid_scale = 100  # any value from 0 to 100
+    grid_width = grid_scale * 0.01 * (0.8 * window_width)
+    grid_margins = (window_width - grid_width) / 2
+
+    # DRAWS GRID --> get rid of all the bullshit and just use numbers lol, make the code work first
+    for line in range(9):
+        py.draw.line(window, py.Color("gray"), (grid_margins + grid_width/10 + line*(grid_width/10), grid_margins*2), (grid_margins + grid_width/10 + line*(grid_width/10), (grid_margins*2)+grid_width-1))
+    for line in range(9):
+        py.draw.line(window, py.Color("gray"), (grid_margins, grid_margins*2 + grid_width/10 + line * grid_width/10), (grid_width + grid_margins, grid_margins*2 + grid_width/10 + line * grid_width/10))
+    py.draw.rect(window, py.Color("white"), (grid_margins, grid_margins*2, grid_width, grid_width), width=2)
+
+
+def fill_squares(board, colour_dict, window):
+    """draws squares in grid with appropriate colours based on SQUARE_GRID"""
+    for y_coord in range(10):
+        for x_coord in range(10):
+            if board[y_coord][x_coord] != 0:
+                py.draw.rect(window, py.Color(colour_dict[int(board[y_coord][x_coord])]), (52 + x_coord * 40, 102 + y_coord * 40, 37, 37), width=0)
+
+
+def reset_pieces(piece_list, force=False):
+    """resets all pieces if all are placed. Can be forced to reset if game is restarted."""
+
+    empty = True  # automatically assumes that the slot for a given piece is empty
+    for z in range(3):  # checks each piece
+        if piece_list[z].state != 2:  # if slot is not empty (state == 2), then changes empty variable to false
+            empty = False
+
+    if empty or force:  # if all 3 slots are empty, or if forced, calls piece.reset() for all three pieces
+        for z in range(3):
+            piece_list[z].reset()
+        # check_fair_pieces()  # function to ensure that new pieces are fair (won't cause game to end)
+        # currently disabled because it's not a feature in the actual game. It's some bullshit.
+
+
+def check_fair_pieces(pieces, board):
+    """checks if the new pieces are fair (won't cause game to instantly end)"""
+    unfair = check_game_over(pieces, board)  # uses game over function to see if any pieces can be placed
+    if unfair:  # if no pieces can be placed, then a random piece is reset
+        pieces[random.randint(0, 2)].reset()
+        check_fair_pieces()  # use recursion to check if new arrangement is fair and so on
+
+
+def check_game_over(pieces, board):
+    """returns true if game is over / no pieces can be placed. Returns false if a piece can be placed."""
+    # pulls up every shape that is not placed and checks it against every possible spot
+    for i in range(3):
+        if pieces[i].state != 2:
+            for a in range(10):
+                for b in range(10):
+
+                    works = True
+                    # pulls up every square in shape blueprint and adjusts to position
+                    for shape_coord_x, shape_coord_y in pieces[i].shape_blueprint:
+                        shape_coord_x += a
+                        shape_coord_y += b
+
+                        # if a square in the shape can't be placed, then it is considered to not work
+                        if not (0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not board[shape_coord_y][shape_coord_x]):
+                            works = False
+                            break
+                    # if any one possibility works then it returns that the game has not ended
+                    if works:
+                        return False
+    # if all shapes and positions are tested and none work, returns that the game is over
+    return True

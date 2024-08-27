@@ -1,91 +1,51 @@
 import numpy as np
-import time
-import game_objects as go
+import functions_and_objects as go
 
 
 class Bot:
-    def __init__(self, depth=1, weight_distribution=(1, 0.5, 0.6)):
-        self.depth = depth
+    def __init__(self, weight_distribution=(0.8, 0.5, 0.7)):
+        # How many moves ahead the bot looks. This is dynamically adjusted during play.
+        self.depth = 1
 
         # line-clearing, snugness, room for 3x3s
         self.weight_distribution = weight_distribution
 
+        # the scores associated with placing a piece in a spot. Higher means better.
         self.line_score = 0
-        self.blob_score = 0
         self.snugness_score = 0
         self.room_score = 0
 
-        self.processing_times = [0, 0, 0, 0, 0]
-        # attempt, blob, snugness, room, overall
-
-        self.moves_done = 0
-
-        self.direness = 64
-
-    def output_time_breakdown(self):
-        # print(self.processing_times)
-        total = self.processing_times[4]
-        print("Attempt:", round(100 * self.processing_times[0] / total, 1), "%")
-        print("Blobs:", round(100 * self.processing_times[1] / total, 1), "%")
-        print("Snugness:", round(100 * self.processing_times[2] / total, 1), "%")
-        print("Room:", round(100 * self.processing_times[3] / total, 1), "%")
-        print("Unaccounted:", round(100*(1-sum(self.processing_times[0:4])/total), 1), "%")
-        print("Time per move:", round(total / self.moves_done / 10**5, 2), "milliseconds")
-
     def calculate_possible_moves(self, board, pieces):
+        # Initialize a board
         move_array = np.zeros((len(pieces), 10, 10))
+        original_room_heuristic = is_room_heuristic(board)
+
         for piece in range(len(pieces)):
             if pieces[piece].state != 2:
                 for x_coord in range(10):
                     for y_coord in range(10):
-                        start = time.time_ns()
                         # ----- TRIES MOVE
                         fake_board = np.copy(board)
                         fake_board, added_score = self.try_move(fake_board, pieces[piece], [x_coord, y_coord])
 
-                        try_time = time.time_ns() - start
-
                         if added_score > 0:
-                            start = time.time_ns()
-                            # ----- BLOBS
-                            # original_blob_heuristic = self.blob_heuristic(board)
-                            # new_blob_heuristic = self.blob_heuristic(np.copy(fake_board))
-                            # self.blob_score = (2 + original_blob_heuristic - new_blob_heuristic)*0.5
-                            self.blob_score = 0
-
-                            blob_time = time.time_ns() - start
-
-                            start = time.time_ns()
                             # ----- SNUGNESS
                             snugness_board = np.copy(board)
                             snugness_board, garbage = go.place_piece(x_coord, y_coord, pieces[piece], snugness_board, place_value=2)
                             self.snugness_score = snug_fit_heuristic(snugness_board, pieces[piece], x_coord, y_coord) * self.weight_distribution[1]
 
-                            snugness_time = time.time_ns() - start
-
-                            start = time.time_ns()
                             # ----- EXTRA ROOM
-                            original_room_heuristic = is_room_heuristic(board)
-                            new_room_heuristic = is_room_heuristic(fake_board)
-
-                            self.room_score = self.weight_distribution[2] * (21 + new_room_heuristic - original_room_heuristic)/21
                             # the worst possible move you could make is placing a 5-long piece and blocking off
                             # 21 potential 3x3 spaces. this way this score can never be negative.
                             # it is normalized so if nothing changes it is a score of 1
+                            new_room_heuristic = is_room_heuristic(fake_board)
+                            self.room_score = self.weight_distribution[2] * (21 + new_room_heuristic - original_room_heuristic)/21
 
-                            room_time = time.time_ns() - start
-
-                            move_array[piece][y_coord][x_coord] += (self.blob_score + self.snugness_score +
-                                                                    self.room_score + added_score)
-                            # print([self.line_score, self.blob_score, round(self.snugness_score, 2), round(self.room_score, 2)])
-
-                            time_breakdown = [try_time, blob_time, snugness_time, room_time, 0]
-
-                            self.processing_times = np.add(self.processing_times, time_breakdown)
-                        else:
-                            self.processing_times = np.add(self.processing_times, [try_time, 0, 0, 0, 0])
+                            # add all rewards
+                            move_array[piece][y_coord][x_coord] += self.snugness_score + self.room_score + added_score
 
                         if len(pieces) > 4-self.depth and added_score > 0:
+                            # piece was placed and the bot has not reached full depth, check 1 layer deeper
                             fake_pieces = np.copy(pieces)
                             fake_pieces = np.delete(fake_pieces, piece)
                             move_array[piece][y_coord][x_coord] += np.max(self.calculate_possible_moves(fake_board, fake_pieces))
@@ -96,14 +56,12 @@ class Bot:
         """takes in game state and returns a piece and a square on the grid"""
         # copy the board and pieces to not accidentally modify them
         # NOT A DEEP COPY. modifying piece objects within fake pieces modifies the original pieces.
-        fake_board = np.copy(board)
         fake_pieces = np.copy(pieces)
+        fake_board = np.where(np.copy(board) > 0, 1, 0)  # Ensure all values are 1 on the board
 
-        fake_board = np.where(fake_board > 0, 1, 0)  # Ensure all values are 1 on the board
-
-        self.direness = is_room_heuristic(fake_board)
+        # Determine which depth the program should use given the situation
+        direness = is_room_heuristic(fake_board)
         board_fullness = sum(fake_board.flatten()) / 100
-
         metric = board_fullness
 
         if metric < 0.25:
@@ -114,28 +72,10 @@ class Bot:
             self.depth = 3
 
         # try all possible moves and record in a big array
-        start = time.time_ns()
         move_array = self.calculate_possible_moves(fake_board, fake_pieces)
-        self.processing_times = np.add(self.processing_times, [0, 0, 0, 0, time.time_ns()-start])
-
         best_move = select_best_move(move_array)
 
-        self.moves_done += 1
-
         return best_move
-
-    def blob_heuristic(self, board):
-        # NOTE THIS IS CURRENTLY OUT OF USE - NOT IMPLEMENTED PROPERLY
-        """returns a value indicating how many piece blobs and black blobs are on the grid (weights applied)"""
-        fake_board = np.copy(board)
-        fake_board_reverse = np.invert(np.array(fake_board, dtype=bool))
-        fake_board_reverse = np.array(fake_board_reverse, dtype=int)
-        # down the line it might be faster to change how the blob counter works
-
-        piece_blobs = blob_counter(fake_board)
-        black_blobs = blob_counter(fake_board_reverse)
-
-        return piece_blobs * self.weight_distribution[2] + black_blobs * self.weight_distribution[1]
 
     def try_move(self, board, piece, square):
         """tests the result of placing a given piece (0-2) in a given square on the board and returns the score"""
@@ -146,37 +86,6 @@ class Bot:
             score += self.line_score
 
         return board, score
-
-
-def blob_counter(board):
-    """I stole this from chatgpt. Seems to work"""
-    visited = [[False for _ in range(len(board[0]))] for _ in range(len(board))]
-    blobs = 0
-
-    for i in range(len(board)):
-        for j in range(len(board[0])):
-            if board[i][j] == 1 and not visited[i][j]:
-                # New blob found
-                flood_fill(board, i, j, visited)
-                blobs += 1
-
-    return blobs
-
-
-def flood_fill(grid, x, y, visited):
-    """I stole this from chatgpt. Seems to work"""
-    # Check if x, y is out of bounds or already visited or empty
-    if x < 0 or x >= len(grid) or y < 0 or y >= len(grid[0]) or visited[x][y] or grid[x][y] == 0:
-        return
-
-    # Mark the cell as visited
-    visited[x][y] = True
-
-    # Recursively fill adjacent cells
-    flood_fill(grid, x + 1, y, visited)
-    flood_fill(grid, x - 1, y, visited)
-    flood_fill(grid, x, y + 1, visited)
-    flood_fill(grid, x, y - 1, visited)
 
 
 def select_best_move(move_array):

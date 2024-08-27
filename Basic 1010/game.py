@@ -2,7 +2,7 @@ import pygame as py
 import numpy as np
 import random
 import time
-import game_objects as go
+import functions_and_objects as go
 import bot as bot_file
 
 py.init()
@@ -12,6 +12,9 @@ py.init()
 - Game over screen
 - Make bot button work slightly better
 - Option to close window when game is over
+- Make ability to test different bots side by side
+- Fix probability of receiving pieces so there isn't a difference between non-rotateable pieces and rotateable pieces
+- Create a version of the bot that switches between a filling and a clearing mode so it plays more efficiently
 """
 
 """--------------------------------------- GLOBAL VARIABLES ---------------------------------------"""
@@ -75,36 +78,14 @@ PIECES = [go.Piece(i, WINDOW, SHAPE_DICT, COLOUR_DICT) for i in range(3)]  # Def
 
 DATA_FILE = "Data.txt"
 
+
 """---------------------------------------FUNCTIONS---------------------------------------"""
-
-
-def draw_grid():
-    grid_scale = 100  # any value from 0 to 100
-    grid_width = grid_scale * 0.01 * (0.8 * WINDOW_WIDTH)
-    grid_margins = (WINDOW_WIDTH - grid_width) / 2
-
-    # DRAWS GRID --> get rid of all the bullshit and just use numbers lol, make the code work first
-    for line in range(9):
-        py.draw.line(WINDOW, py.Color("gray"), (grid_margins + grid_width/10 + line*(grid_width/10), grid_margins*2), (grid_margins + grid_width/10 + line*(grid_width/10), (grid_margins*2)+grid_width-1))
-    for line in range(9):
-        py.draw.line(WINDOW, py.Color("gray"), (grid_margins, grid_margins*2 + grid_width/10 + line * grid_width/10), (grid_width + grid_margins, grid_margins*2 + grid_width/10 + line * grid_width/10))
-    py.draw.rect(WINDOW, py.Color("white"), (grid_margins, grid_margins*2, grid_width, grid_width), width=2)
-
-
-def fill_squares():
-    """draws squares in grid with appropriate colours based on SQUARE_GRID"""
-    for y_coord in range(10):
-        for x_coord in range(10):
-            if BOARD[y_coord][x_coord] != 0:
-                py.draw.rect(WINDOW, py.Color(COLOUR_DICT[int(BOARD[y_coord][x_coord])]), (52 + x_coord * 40, 102 + y_coord * 40, 37, 37), width=0)
-
-
 def visuals():
     """refreshes all visuals on the screen"""
     WINDOW.fill(py.Color("black"))
 
-    fill_squares()
-    draw_grid()
+    go.fill_squares(BOARD, COLOUR_DICT, WINDOW)
+    go.draw_grid(WINDOW, WINDOW_WIDTH)
     SCORE_LABEL.draw()
     HIGH_SCORE_LABEL.draw()
     RESTART_BUTTON.draw()
@@ -165,59 +146,11 @@ def mouse_released():
             piece.state = 0
 
 
-def reset_pieces(piece_list, force=False):
-    """resets all pieces if all are placed. Can be forced to reset if game is restarted."""
-
-    empty = True  # automatically assumes that the slot for a given piece is empty
-    for z in range(3):  # checks each piece
-        if piece_list[z].state != 2:  # if slot is not empty (state == 2), then changes empty variable to false
-            empty = False
-
-    if empty or force:  # if all 3 slots are empty, or if forced, calls piece.reset() for all three pieces
-        for z in range(3):
-            piece_list[z].reset()
-        # check_fair_pieces()  # function to ensure that new pieces are fair (won't cause game to end)
-        # currently disabled because it's not a feature in the actual game. It's some bullshit.
-
-
-def check_fair_pieces():
-    """checks if the new pieces are fair (won't cause game to instantly end)"""
-    unfair = check_game_over()  # uses game over function to see if any pieces can be placed
-    if unfair:  # if no pieces can be placed, then a random piece is reset
-        PIECES[random.randint(0, 2)].reset()
-        check_fair_pieces()  # use recursion to check if new arrangement is fair and so on
-
-
-def check_game_over():
-    """returns true if game is over / no pieces can be placed. Returns false if a piece can be placed."""
-    # pulls up every shape that is not placed and checks it against every possible spot
-    for i in range(3):
-        if PIECES[i].state != 2:
-            for a in range(10):
-                for b in range(10):
-
-                    works = True
-                    # pulls up every square in shape blueprint and adjusts to position
-                    for shape_coord_x, shape_coord_y in PIECES[i].shape_blueprint:
-                        shape_coord_x += a
-                        shape_coord_y += b
-
-                        # if a square in the shape can't be placed, then it is considered to not work
-                        if not (0 <= shape_coord_x <= 9 and 0 <= shape_coord_y <= 9 and not BOARD[shape_coord_y][shape_coord_x]):
-                            works = False
-                            break
-                    # if any one possibility works then it returns that the game has not ended
-                    if works:
-                        return False
-    # if all shapes and positions are tested and none work, returns that the game is over
-    return True
-
-
 # option 1 = immediately resets game (good for bot), option 2 = game over screen that needs restart_button to be pressed
-def handle_game_over(option=1):
+def handle_game_over(pieces, option=1):
     """handles what happens when the game ends, based on needs."""
     if option == 1:
-        reset_game(PIECES)
+        reset_game(pieces)
 
 
 def get_high_score():
@@ -254,7 +187,7 @@ def check_high_score(reset_score=True):
 def reset_game(piece_list):
     global BOARD
     BOARD = np.zeros((10, 10), dtype=int)
-    reset_pieces(piece_list, force=True)
+    go.reset_pieces(piece_list, force=True)
     check_high_score()
 
 
@@ -291,11 +224,9 @@ def main(bot_selection=False, rounds=1):
     py.display.set_caption(WINDOW_TITLE)
 
     running = True
-    count = 0
+    round_count = 0
     all_scores = []
-    while running and count < rounds:
-        # print(f'\rRound: {count}', end='', flush=True)
-
+    while running and round_count < rounds:
         MOUSE_X, MOUSE_Y = py.mouse.get_pos()
 
         for event in py.event.get():
@@ -316,15 +247,15 @@ def main(bot_selection=False, rounds=1):
             run_bot(bot_selection)
 
         # Checks if there are pieces still left. Resets and adds new ones if no.
-        reset_pieces(PIECES)
+        go.reset_pieces(PIECES)
 
         # Checks if game is over (whether through reset or other). If so, handles game over.
-        game_over = check_game_over()
+        game_over = go.check_game_over(PIECES, BOARD)
 
         if not running or game_over or reset_button_pressed:
             all_scores.append(SCORE)
-            count += 1
-            # print(SCORE)
+            round_count += 1
+            print(SCORE)
             check_high_score(reset_score=True)
 
             if reset_button_pressed:
@@ -340,75 +271,11 @@ def main(bot_selection=False, rounds=1):
         RESTART_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
         BOT_BUTTON.update(mouse_pressed, MOUSE_X, MOUSE_Y)
 
-    median = np.median(np.array(all_scores))
-    return median, max(all_scores), min(all_scores)
-
-
-def try_configuration(weights, rounds):
-    bot = bot_file.Bot(1, weights)  # create bot object
-    median, max_score, min_score = main(bot, rounds=rounds)  # need to pass a bot object to main, nothing else
-
-    # bot.output_time_breakdown()
-
-    return median, max_score, min_score, weights
-
-
-def generate_all_permutations():
-    import itertools
-
-    # Define the possible values each element can take
-    possible_values = [i * 0.5 for i in range(3)]  # [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-    print(possible_values)
-
-    # Generate all possible combinations with repetition for the given length of the list
-    combinations = list(itertools.product(possible_values, repeat=5))
-
-    # Convert combinations to a set to filter out duplicates, if any
-    unique_combinations = set(combinations)
-
-    # Convert back to list if needed
-    unique_combinations_list = list(unique_combinations)
-
-    print(len(unique_combinations_list), "combinations testing")
-    return unique_combinations_list
-
-
-def explore_around(configuration, increments, num_increments):  # num increments above and below original values
-    import itertools
-    adjustments = [i * increments - num_increments * increments for i in range(num_increments * 2 + 1)]
-    print("Testing the following configuration:", configuration)
-    print("Testing the following adjustments:", adjustments)
-    combinations_of_increments = list(itertools.product(adjustments, repeat=len(configuration)))
-    unique_combinations = set(combinations_of_increments)
-
-    new_configurations = [np.add(configuration, unique_combination) for unique_combination in unique_combinations]
-
-    count = 0
-    for config in new_configurations:
-        for num in config:
-            if num < 0:
-                new_configurations = np.delete(new_configurations, count, axis=0)
-                count -= 1
-                break
-        count += 1
-
-    return new_configurations
+    return np.median(np.array(all_scores)), max(all_scores), min(all_scores)
 
 
 if __name__ == "__main__":
-    RESULTS_LIST = []
-    rounds = 200
-    configs_to_try = [[0.8, 0.5, 0.7]]
-
-    print("Testing", len(configs_to_try), "configurations")
-    count = 0
-    for weights in configs_to_try:
-        count += 1
-        print(f'\rWorking on configuration: {count}', end='', flush=True)
-        RESULTS_LIST.append(try_configuration(weights, rounds))
-
-    with open("poopoo", 'w') as f:
-        f.write(str(RESULTS_LIST))
-    f.close()  # closes file
+    bot = bot_file.Bot()  # create bot object
+    median, max_score, min_score = main(bot, 100)  # need to pass a bot object to main, nothing else
 
     py.quit()
