@@ -262,7 +262,7 @@ def main(bot_selection=False, rounds=1):
                 reset_button_pressed = False
                 reset_game(PIECES)
             elif game_over:
-                handle_game_over()
+                handle_game_over(PIECES)
             else:
                 running = False
 
